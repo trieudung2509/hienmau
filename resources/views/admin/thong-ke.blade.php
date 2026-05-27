@@ -29,15 +29,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                     </svg>
                     <select class="form-input form-select form-input-icon" id="khoang_thoi_gian" name="khoang_thoi_gian" onchange="updateDateInputs(this.value)">
-                        <option value="2025" selected>01/01/2025 - 31/12/2025</option>
-                        <option value="2024">01/01/2024 - 31/12/2024</option>
-                        <option value="custom">Tùy chọn khoảng ngày</option>
+                        <option value="2025" {{ $khoangThoiGian == '2025' ? 'selected' : '' }}>01/01/2025 - 31/12/2025</option>
+                        <option value="2024" {{ $khoangThoiGian == '2024' ? 'selected' : '' }}>01/01/2024 - 31/12/2024</option>
+                        <option value="custom" {{ $khoangThoiGian == 'custom' ? 'selected' : '' }}>Tùy chọn khoảng ngày</option>
                     </select>
                 </div>
             </div>
 
             <!-- Custom date inputs (hidden by default unless custom is picked) -->
-            <div id="custom-date-inputs" style="display: none; gap: 16px; align-items: flex-end;">
+            <div id="custom-date-inputs" style="display: {{ $khoangThoiGian == 'custom' ? 'inline-flex' : 'none' }}; gap: 16px; align-items: flex-end;">
                 <div class="form-group">
                     <label class="form-label" for="tu_ngay">Từ ngày</label>
                     <input class="form-input" type="date" id="tu_ngay" name="tu_ngay" value="{{ $tuNgay }}">
@@ -83,8 +83,8 @@
             <div class="stat-info">
                 <span class="stat-title" style="color: var(--neutral-grey); font-weight: 500;">Tổng chương trình</span>
                 <span class="stat-value" style="font-size: 28px; font-weight: 700; color: var(--neutral-dark);">{{ $totalPrograms }}</span>
-                <span class="stat-label" style="color: var(--success); font-weight: 600;">
-                    <span style="font-size: 14px;">↑</span> 8% so với cùng kỳ 2024
+                <span class="stat-label" style="color: {{ $programGrowth >= 0 ? 'var(--success)' : 'var(--danger)' }}; font-weight: 600;">
+                    <span style="font-size: 14px;">{{ $programGrowth >= 0 ? '↑' : '↓' }}</span> {{ number_format(abs($programGrowth), 0, ',', '.') }}% so với năm trước
                 </span>
             </div>
         </div>
@@ -99,8 +99,8 @@
             <div class="stat-info">
                 <span class="stat-title" style="color: var(--neutral-grey); font-weight: 500;">Tổng người tham gia</span>
                 <span class="stat-value" style="font-size: 28px; font-weight: 700; color: var(--neutral-dark);">{{ number_format($totalParticipants, 0, ',', '.') }}</span>
-                <span class="stat-label" style="color: var(--success); font-weight: 600;">
-                    <span style="font-size: 14px;">↑</span> 12% so với cùng kỳ 2024
+                <span class="stat-label" style="color: {{ $participantGrowth >= 0 ? 'var(--success)' : 'var(--danger)' }}; font-weight: 600;">
+                    <span style="font-size: 14px;">{{ $participantGrowth >= 0 ? '↑' : '↓' }}</span> {{ number_format(abs($participantGrowth), 0, ',', '.') }}% so với năm trước
                 </span>
             </div>
         </div>
@@ -117,8 +117,8 @@
                 <span class="stat-value" style="font-size: 28px; font-weight: 700; color: var(--neutral-dark);">
                     {{ number_format($totalBlood, 0, ',', '.') }} <span style="font-size: 16px; font-weight: 500; color: var(--neutral-grey);">ml</span>
                 </span>
-                <span class="stat-label" style="color: var(--success); font-weight: 600;">
-                    <span style="font-size: 14px;">↑</span> 15% so với cùng kỳ 2024
+                <span class="stat-label" style="color: {{ $bloodGrowth >= 0 ? 'var(--success)' : 'var(--danger)' }}; font-weight: 600;">
+                    <span style="font-size: 14px;">{{ $bloodGrowth >= 0 ? '↑' : '↓' }}</span> {{ number_format(abs($bloodGrowth), 0, ',', '.') }}% so với năm trước
                 </span>
             </div>
         </div>
@@ -133,8 +133,8 @@
             <div class="stat-info">
                 <span class="stat-title" style="color: var(--neutral-grey); font-weight: 500;">Số lượt hiến máu</span>
                 <span class="stat-value" style="font-size: 28px; font-weight: 700; color: var(--neutral-dark);">{{ number_format($totalDonations, 0, ',', '.') }}</span>
-                <span class="stat-label" style="color: var(--success); font-weight: 600;">
-                    <span style="font-size: 14px;">↑</span> 10% so với cùng kỳ 2024
+                <span class="stat-label" style="color: {{ $donationGrowth >= 0 ? 'var(--success)' : 'var(--danger)' }}; font-weight: 600;">
+                    <span style="font-size: 14px;">{{ $donationGrowth >= 0 ? '↑' : '↓' }}</span> {{ number_format(abs($donationGrowth), 0, ',', '.') }}% so với năm trước
                 </span>
             </div>
         </div>
@@ -176,28 +176,28 @@
                             <span style="width: 10px; height: 10px; border-radius: 50%; background-color: #3b82f6;"></span>
                             <span>Đã kết thúc</span>
                         </div>
-                        <span>{{ $status5 }} ({{ round(($status5 / $totalPrograms)*100, 1) }}%)</span>
+                        <span>{{ $status5 }} ({{ $totalPrograms > 0 ? round(($status5 / $totalPrograms)*100, 1) : 0 }}%)</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="width: 10px; height: 10px; border-radius: 50%; background-color: #10b981;"></span>
                             <span>Đang diễn ra</span>
                         </div>
-                        <span>{{ $status3 }} ({{ round(($status3 / $totalPrograms)*100, 1) }}%)</span>
+                        <span>{{ $status3 }} ({{ $totalPrograms > 0 ? round(($status3 / $totalPrograms)*100, 1) : 0 }}%)</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="width: 10px; height: 10px; border-radius: 50%; background-color: #f59e0b;"></span>
                             <span>Chờ duyệt</span>
                         </div>
-                        <span>{{ $status1 }} ({{ round(($status1 / $totalPrograms)*100, 1) }}%)</span>
+                        <span>{{ $status1 }} ({{ $totalPrograms > 0 ? round(($status1 / $totalPrograms)*100, 1) : 0 }}%)</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="width: 10px; height: 10px; border-radius: 50%; background-color: #8b5cf6;"></span>
                             <span>Đã hủy</span>
                         </div>
-                        <span>{{ $status4 }} ({{ round(($status4 / $totalPrograms)*100, 1) }}%)</span>
+                        <span>{{ $status4 }} ({{ $totalPrograms > 0 ? round(($status4 / $totalPrograms)*100, 1) : 0 }}%)</span>
                     </div>
                 </div>
             </div>
@@ -327,12 +327,12 @@
 
             <!-- Stats Box (Right Panel) -->
             <div style="background-color: var(--neutral-light); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; text-align: center; box-shadow: var(--shadow-sm);">
-                <span style="font-size: 13px; font-weight: 600; color: var(--neutral-grey); text-transform: uppercase; letter-spacing: 0.5px;">Tăng trưởng 2025 so với 2024</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--neutral-grey); text-transform: uppercase; letter-spacing: 0.5px;">Tăng trưởng {{ $trendYears[4] }} so với {{ $trendYears[3] }}</span>
                 <div style="display: flex; flex-direction: column; gap: 8px; margin: 16px 0;">
-                    <span style="font-size: 36px; font-weight: 800; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-                        <span style="font-size: 28px;">↑</span> 11,96%
+                    <span style="font-size: 36px; font-weight: 800; color: {{ $growthDiff >= 0 ? 'var(--primary)' : 'var(--danger)' }}; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span style="font-size: 28px;">{{ $growthDiff >= 0 ? '↑' : '↓' }}</span> {{ number_format(abs($growthPercent), 2, ',', '.') }}%
                     </span>
-                    <span style="font-size: 14px; font-weight: 600; color: var(--neutral-grey);">(+250 người tham gia)</span>
+                    <span style="font-size: 14px; font-weight: 600; color: var(--neutral-grey);">({{ $growthDiff >= 0 ? '+' : '' }}{{ number_format($growthDiff, 0, ',', '.') }} người tham gia)</span>
                 </div>
                 <!-- Mini trend background element -->
                 <div style="display: flex; justify-content: center; align-items: flex-end; gap: 4px; height: 40px;">
@@ -462,7 +462,7 @@
         new Chart(yearlyCtx, {
             type: 'line',
             data: {
-                labels: ['2021', '2022', '2023', '2024', '2025'],
+                labels: @json($trendYears),
                 datasets: [{
                     label: 'Người tham gia',
                     data: @json($yearlyTrend),

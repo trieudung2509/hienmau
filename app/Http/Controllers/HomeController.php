@@ -598,4 +598,56 @@ class HomeController extends Controller
             return back()->withErrors(['error' => 'Đã xảy ra lỗi khi đăng ký: ' . $e->getMessage()])->withInput();
         }
     }
+
+    public function hoiDap()
+    {
+        return view('frontend.hoi-dap');
+    }
+
+    public function lienHe()
+    {
+        return view('frontend.lien-he');
+    }
+
+    public function submitLienHe(Request $request)
+    {
+        $validated = $request->validate([
+            'HoTen' => 'required|string|max:255',
+            'Email' => 'required|email|max:255',
+            'SoDienThoai' => [
+                'required',
+                'regex:/^(0[235789])[0-9]{8,9}$/',
+            ],
+            'TieuDe' => 'required|string|max:255',
+            'NoiDung' => 'required|string|min:10',
+        ], [
+            'HoTen.required' => 'Họ và tên không được để trống.',
+            'HoTen.string' => 'Họ và tên phải là chuỗi ký tự.',
+            'HoTen.max' => 'Họ và tên không được vượt quá 255 ký tự.',
+            'Email.required' => 'Email không được để trống.',
+            'Email.email' => 'Email không đúng định dạng.',
+            'Email.max' => 'Email không được vượt quá 255 ký tự.',
+            'SoDienThoai.required' => 'Số điện thoại không được để trống.',
+            'SoDienThoai.regex' => 'Số điện thoại chưa đúng định dạng.',
+            'TieuDe.required' => 'Tiêu đề không được để trống.',
+            'TieuDe.string' => 'Tiêu đề phải là chuỗi ký tự.',
+            'TieuDe.max' => 'Tiêu đề không được vượt quá 255 ký tự.',
+            'NoiDung.required' => 'Nội dung không được để trống.',
+            'NoiDung.string' => 'Nội dung phải là chuỗi ký tự.',
+            'NoiDung.min' => 'Nội dung phải có ít nhất 10 ký tự.',
+        ]);
+
+        DB::table('LienHe')->insert([
+            'HoTen' => $validated['HoTen'],
+            'Email' => $validated['Email'],
+            'SoDienThoai' => $validated['SoDienThoai'],
+            'TieuDe' => $validated['TieuDe'],
+            'NoiDung' => $validated['NoiDung'],
+            'TrangThai' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Gửi thông tin liên hệ thành công! Chúng tôi sẽ phản hồi sớm nhất có thể.');
+    }
 }

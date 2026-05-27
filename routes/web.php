@@ -22,6 +22,9 @@ Route::get('/chuong-trinh', [HomeController::class, 'chuongTrinhList'])->name('f
 Route::get('/chuong-trinh/{id}', [HomeController::class, 'chuongTrinhShow'])->name('frontend.chuong-trinh.show');
 Route::get('/dang-ky-chuong-trinh', [HomeController::class, 'showProgramRegistrationForm'])->name('frontend.chuong-trinh.register');
 Route::post('/dang-ky-chuong-trinh', [HomeController::class, 'registerForProgram'])->name('frontend.chuong-trinh.register.submit');
+Route::get('/hoi-dap', [HomeController::class, 'hoiDap'])->name('frontend.hoi-dap');
+Route::get('/lien-he', [HomeController::class, 'lienHe'])->name('frontend.lien-he');
+Route::post('/lien-he', [HomeController::class, 'submitLienHe'])->name('frontend.lien-he.submit');
 Route::get('/don-vi-to-chuc-portal', [\App\Http\Controllers\DonViToChucDashboardController::class, 'index'])
     ->name('don-vi-to-chuc.index')
     ->middleware('admin.session');
@@ -77,5 +80,8 @@ Route::middleware('admin.session')->prefix('admin')->group(function () {
 	Route::post('/nguoi-dung/{id}/update', [NguoiDungController::class, 'update'])->name('admin.nguoi-dung.update');
 	Route::get('/thong-ke', [ThongKeController::class, 'index'])->name('admin.thong-ke');
 	Route::get('/ho-so', [HoSoController::class, 'index'])->name('admin.ho-so.index');
+	Route::get('/lien-he', [\App\Http\Controllers\Admin\ContactController::class, 'index'])->name('admin.lien-he.index');
+	Route::post('/lien-he/{id}/read', [\App\Http\Controllers\Admin\ContactController::class, 'markAsRead'])->name('admin.lien-he.read');
+	Route::post('/lien-he/{id}/delete', [\App\Http\Controllers\Admin\ContactController::class, 'destroy'])->name('admin.lien-he.destroy');
 	Route::post('/logout', [\App\Http\Controllers\Admin\AuthController::class, 'logout'])->name('admin.logout');
 });

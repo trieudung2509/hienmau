@@ -12,135 +12,234 @@ class ThongKeController extends Controller
     public function index(Request $request)
     {
         // 1. Gather Date & Program Filters
-        $tuNgay = $request->get('tu_ngay', '2025-01-01');
-        $denNgay = $request->get('den_ngay', '2025-12-31');
+        $khoangThoiGian = $request->get('khoang_thoi_gian', '2025');
+        if ($khoangThoiGian === '2025') {
+            $tuNgay = '2025-01-01';
+            $denNgay = '2025-12-31';
+        } elseif ($khoangThoiGian === '2024') {
+            $tuNgay = '2024-01-01';
+            $denNgay = '2024-12-31';
+        } else {
+            $tuNgay = $request->get('tu_ngay', '2025-01-01');
+            $denNgay = $request->get('den_ngay', '2025-12-31');
+        }
         $chuongTrinhId = $request->get('chuong_trinh_id', '');
 
         // 2. Fetch all programs for select filter dropdown
         $allPrograms = DB::table('ChuongTrinhHienMau')
             ->select('Id', 'TenChuongTrinh')
+            ->whereNull('deleted_at')
             ->get();
 
-        // 3. Count dynamic database totals
-        $dbProgramCount = DB::table('ChuongTrinhHienMau')->count();
-        $dbDonationCount = DB::table('HoSoHienMau')->count();
-        $dbBloodVolume = DB::table('HoSoHienMau')->sum('LuongMau');
-        $dbParticipantCount = DB::table('HoSoHienMau')->distinct('NguoiHienMauId')->count();
+        // 3. Count dynamic database totals for current period
+        $programQuery = DB::table('ChuongTrinhHienMau')
+            ->whereBetween('ThoiGianBatDau', [$tuNgay . ' 00:00:00', $denNgay . ' 23:59:59'])
+            ->whereNull('deleted_at');
+        if ($chuongTrinhId) {
+            $programQuery->where('Id', $chuongTrinhId);
+        }
+        $totalPrograms = $programQuery->count();
 
-        // 4. Group by Status counts in DB
-        $statusCounts = DB::table('ChuongTrinhHienMau')
+        $donationQuery = DB::table('HoSoHienMau')
+            ->whereBetween('ThoiGianHien', [$tuNgay . ' 00:00:00', $denNgay . ' 23:59:59'])
+            ->whereNull('deleted_at');
+        if ($chuongTrinhId) {
+            $donationQuery->where('ChuongTrinhId', $chuongTrinhId);
+        }
+        $totalDonations = $donationQuery->count();
+        $totalBlood = $donationQuery->sum('LuongMau');
+        $totalParticipants = $donationQuery->distinct('NguoiHienMauId')->count('NguoiHienMauId');
+
+        // 4. Compute growth compared to the equivalent previous period
+        $prevTuNgay = Carbon::parse($tuNgay)->subYear()->format('Y-m-d');
+        $prevDenNgay = Carbon::parse($denNgay)->subYear()->format('Y-m-d');
+
+        $prevProgramQuery = DB::table('ChuongTrinhHienMau')
+            ->whereBetween('ThoiGianBatDau', [$prevTuNgay . ' 00:00:00', $prevDenNgay . ' 23:59:59'])
+            ->whereNull('deleted_at');
+        if ($chuongTrinhId) {
+            $prevProgramQuery->where('Id', $chuongTrinhId);
+        }
+        $prevPrograms = $prevProgramQuery->count();
+
+        $prevDonationQuery = DB::table('HoSoHienMau')
+            ->whereBetween('ThoiGianHien', [$prevTuNgay . ' 00:00:00', $prevDenNgay . ' 23:59:59'])
+            ->whereNull('deleted_at');
+        if ($chuongTrinhId) {
+            $prevDonationQuery->where('ChuongTrinhId', $chuongTrinhId);
+        }
+        $prevDonations = $prevDonationQuery->count();
+        $prevBlood = $prevDonationQuery->sum('LuongMau');
+        $prevParticipants = $prevDonationQuery->distinct('NguoiHienMauId')->count('NguoiHienMauId');
+
+        $calcGrowth = function($current, $previous) {
+            if ($previous == 0) {
+                return $current > 0 ? 100 : 0;
+            }
+            return (($current - $previous) / $previous) * 100;
+        };
+
+        $programGrowth = $calcGrowth($totalPrograms, $prevPrograms);
+        $participantGrowth = $calcGrowth($totalParticipants, $prevParticipants);
+        $bloodGrowth = $calcGrowth($totalBlood, $prevBlood);
+        $donationGrowth = $calcGrowth($totalDonations, $prevDonations);
+
+        // 5. Group by Status counts in DB for current period
+        $statusCountsQuery = DB::table('ChuongTrinhHienMau')
+            ->whereBetween('ThoiGianBatDau', [$tuNgay . ' 00:00:00', $denNgay . ' 23:59:59'])
+            ->whereNull('deleted_at');
+        if ($chuongTrinhId) {
+            $statusCountsQuery->where('Id', $chuongTrinhId);
+        }
+        $statusCounts = $statusCountsQuery
             ->select('TrangThai', DB::raw('count(*) as total'))
             ->groupBy('TrangThai')
             ->pluck('total', 'TrangThai')
             ->toArray();
 
-        // Mathematically align seeded DB counts with interface baseline figures
-        // Seeders contain: 1 of Status 1, 1 of Status 2, 1 of Status 3, 1 of Status 4, 1 of Status 5
-        $status1 = ($statusCounts[1] ?? 0) + 11; // 12
-        $status3 = ($statusCounts[3] ?? 0) + 7;  // 8
-        $status4 = ($statusCounts[4] ?? 0) + 9;  // 10
-        // We group Status 2 (Đã duyệt) and Status 5 (Đã kết thúc) into the "Đã kết thúc" category
-        $status5 = ($statusCounts[5] ?? 0) + ($statusCounts[2] ?? 0) + 24; // 26
+        $status1 = $statusCounts[1] ?? 0; // Chờ duyệt
+        $status3 = $statusCounts[3] ?? 0; // Đang diễn ra
+        $status4 = $statusCounts[4] ?? 0; // Đã hủy
+        $status5 = ($statusCounts[5] ?? 0) + ($statusCounts[2] ?? 0); // Đã kết thúc + Đã duyệt
 
-        $totalPrograms = $status1 + $status3 + $status4 + $status5; // 56
-
-        // Compute baseline growth card metrics
-        $totalParticipants = max(2340, 2336 + $dbParticipantCount);
-        $totalBlood = max(12450, 12400 + $dbBloodVolume);
-        $totalDonations = max(1980, 1976 + $dbDonationCount);
-
-        // 5. Blood Group Breakdown
-        $bloodGroupCounts = DB::table('NguoiHienMau as nhm')
+        // 6. Blood Group Breakdown for current period
+        $bloodGroupCountsQuery = DB::table('NguoiHienMau as nhm')
             ->join('HoSoHienMau as hshm', 'nhm.Id', '=', 'hshm.NguoiHienMauId')
-            ->select('nhm.NhomMau', DB::raw('count(hshm.Id) as people'), DB::raw('sum(hshm.LuongMau) as ml'))
+            ->whereBetween('hshm.ThoiGianHien', [$tuNgay . ' 00:00:00', $denNgay . ' 23:59:59'])
+            ->whereNull('hshm.deleted_at');
+
+        if ($chuongTrinhId) {
+            $bloodGroupCountsQuery->where('hshm.ChuongTrinhId', $chuongTrinhId);
+        }
+
+        $bloodGroupCounts = $bloodGroupCountsQuery
+            ->select('nhm.NhomMau', DB::raw('count(distinct hshm.NguoiHienMauId) as people'), DB::raw('sum(hshm.LuongMau) as ml'))
             ->groupBy('nhm.NhomMau')
             ->get()
             ->keyBy('NhomMau')
             ->toArray();
 
-        // Baseline matching values:
-        // A: 850 people, 4250 ml
-        // O: 720 people, 3600 ml
-        // B: 520 people, 2600 ml
-        // AB: 250 people, 1250 ml
         $bloodTypes = [
             'A' => [
-                'people' => 850 + ($bloodGroupCounts['A']->people ?? 0),
-                'ml' => 4250 + ($bloodGroupCounts['A']->ml ?? 0)
+                'people' => (int) ($bloodGroupCounts['A']->people ?? 0),
+                'ml' => (int) ($bloodGroupCounts['A']->ml ?? 0)
             ],
             'O' => [
-                'people' => 720 + ($bloodGroupCounts['O']->people ?? 0),
-                'ml' => 3600 + ($bloodGroupCounts['O']->ml ?? 0)
+                'people' => (int) ($bloodGroupCounts['O']->people ?? 0),
+                'ml' => (int) ($bloodGroupCounts['O']->ml ?? 0)
             ],
             'B' => [
-                'people' => 520 + ($bloodGroupCounts['B']->people ?? 0),
-                'ml' => 2600 + ($bloodGroupCounts['B']->ml ?? 0)
+                'people' => (int) ($bloodGroupCounts['B']->people ?? 0),
+                'ml' => (int) ($bloodGroupCounts['B']->ml ?? 0)
             ],
             'AB' => [
-                'people' => 250 + ($bloodGroupCounts['AB']->people ?? 0),
-                'ml' => 1250 + ($bloodGroupCounts['AB']->ml ?? 0)
+                'people' => (int) ($bloodGroupCounts['AB']->people ?? 0),
+                'ml' => (int) ($bloodGroupCounts['AB']->ml ?? 0)
             ]
         ];
 
-        // 6. Top 5 programs
-        // We pull the seeded programs from DB and represent their stats matching the screenshot:
-        $programsList = DB::table('ChuongTrinhHienMau as ct')
-            ->join('DonViToChuc as dv', 'ct.DonViToChucId', '=', 'dv.Id')
+        // 7. Top 5 programs based on total blood volume and registrations
+        $programsQuery = DB::table('ChuongTrinhHienMau as ct')
+            ->whereBetween('ct.ThoiGianBatDau', [$tuNgay . ' 00:00:00', $denNgay . ' 23:59:59'])
+            ->whereNull('ct.deleted_at');
+
+        if ($chuongTrinhId) {
+            $programsQuery->where('ct.Id', $chuongTrinhId);
+        }
+
+        $programsList = $programsQuery
             ->select('ct.Id', 'ct.TenChuongTrinh', 'ct.ThoiGianBatDau', 'ct.SoLuongDuKien')
-            ->orderBy('ct.created_at', 'asc')
             ->get();
 
         $topPrograms = [];
-        $index = 0;
-        
-        // Define screenshot exact values
-        $screenshotStats = [
-            0 => ['date' => '20/06/2025', 'participants' => '150/200', 'percent' => 75, 'ml' => 2450],
-            1 => ['date' => '18/06/2025', 'participants' => '180/180', 'percent' => 100, 'ml' => 2200],
-            2 => ['date' => '25/06/2025', 'participants' => '120/250', 'percent' => 48, 'ml' => 1800],
-            3 => ['date' => '28/06/2025', 'participants' => '0/200', 'percent' => 0, 'ml' => 1600],
-            4 => ['date' => '05/07/2025', 'participants' => '60/150', 'percent' => 40, 'ml' => 1300],
-        ];
-
         foreach ($programsList as $p) {
-            $stats = $screenshotStats[$index] ?? [
-                'date' => Carbon::parse($p->ThoiGianBatDau)->format('d/m/Y'),
-                'participants' => '0/' . $p->SoLuongDuKien,
-                'percent' => 0,
-                'ml' => 0
-            ];
+            $registeredCount = DB::table('DangKyHienMau')
+                ->where('ChuongTrinhId', $p->Id)
+                ->whereNull('deleted_at')
+                ->count();
+
+            $totalBloodVolume = DB::table('HoSoHienMau')
+                ->where('ChuongTrinhId', $p->Id)
+                ->whereNull('deleted_at')
+                ->sum('LuongMau');
+
+            $percent = $p->SoLuongDuKien > 0 ? min(100, round(($registeredCount / $p->SoLuongDuKien) * 100)) : 0;
 
             $topPrograms[] = [
                 'name' => $p->TenChuongTrinh,
-                'date' => $stats['date'],
-                'participants' => $stats['participants'],
-                'percent' => $stats['percent'],
-                'ml' => $stats['ml']
+                'date' => Carbon::parse($p->ThoiGianBatDau)->format('d/m/Y'),
+                'participants' => "{$registeredCount}/{$p->SoLuongDuKien}",
+                'percent' => $percent,
+                'ml' => (int) $totalBloodVolume
             ];
-            $index++;
         }
 
-        // Sort by volume descending to make it Top 5
         usort($topPrograms, function($a, $b) {
             return $b['ml'] <=> $a['ml'];
         });
 
-        // Slice to Top 5
         $topPrograms = array_slice($topPrograms, 0, 5);
 
-        // 7. Monthly volume chart data
-        // Baseline bar chart:
-        $monthlyVolume = [800, 950, 1200, 1400, 1000, 1850, 2100, 1600, 1450, 1700, 1650, 1150];
+        // 8. Monthly volume chart data grouped using PHP for db-agnostic safety
+        $targetYear = Carbon::parse($tuNgay)->year;
 
-        // 8. Yearly Trend
-        // 2021: 1200, 2022: 1450, 2023: 1680, 2024: 2090, 2025: 2340
-        $yearlyTrend = [1200, 1450, 1680, 2090, $totalParticipants];
+        $monthlyVolumeQuery = DB::table('HoSoHienMau')
+            ->whereYear('ThoiGianHien', $targetYear)
+            ->whereNull('deleted_at');
+
+        if ($chuongTrinhId) {
+            $monthlyVolumeQuery->where('ChuongTrinhId', $chuongTrinhId);
+        }
+
+        $records = $monthlyVolumeQuery
+            ->select('ThoiGianHien', 'LuongMau')
+            ->get();
+
+        $monthlyVolume = array_fill(0, 12, 0);
+        foreach ($records as $record) {
+            $month = (int) Carbon::parse($record->ThoiGianHien)->month;
+            if ($month >= 1 && $month <= 12) {
+                $monthlyVolume[$month - 1] += (int) $record->LuongMau;
+            }
+        }
+
+        // 9. Yearly Trend (5 years ending with targetYear)
+        $years = [
+            $targetYear - 4,
+            $targetYear - 3,
+            $targetYear - 2,
+            $targetYear - 1,
+            $targetYear
+        ];
+        $trendYears = array_map('strval', $years);
+
+        $yearlyTrend = [];
+        foreach ($years as $yr) {
+            $yearlyQuery = DB::table('HoSoHienMau')
+                ->whereYear('ThoiGianHien', $yr)
+                ->whereNull('deleted_at');
+
+            if ($chuongTrinhId) {
+                $yearlyQuery->where('ChuongTrinhId', $chuongTrinhId);
+            }
+
+            $yearlyTrend[] = $yearlyQuery->distinct('NguoiHienMauId')->count('NguoiHienMauId');
+        }
+
+        $p2024 = $yearlyTrend[3] ?? 0;
+        $p2025 = $yearlyTrend[4] ?? 0;
+        $growthDiff = $p2025 - $p2024;
+        $growthPercent = $p2024 > 0 ? ($growthDiff / $p2024) * 100 : ($growthDiff > 0 ? 100 : 0);
 
         return view('admin.thong-ke', compact(
             'totalPrograms',
             'totalParticipants',
             'totalBlood',
             'totalDonations',
+            'programGrowth',
+            'participantGrowth',
+            'bloodGrowth',
+            'donationGrowth',
             'status1',
             'status3',
             'status4',
@@ -149,10 +248,14 @@ class ThongKeController extends Controller
             'topPrograms',
             'monthlyVolume',
             'yearlyTrend',
+            'trendYears',
+            'growthPercent',
+            'growthDiff',
             'allPrograms',
             'tuNgay',
             'denNgay',
-            'chuongTrinhId'
+            'chuongTrinhId',
+            'khoangThoiGian'
         ));
     }
 }

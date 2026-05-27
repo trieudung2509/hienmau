@@ -76,7 +76,8 @@
       transition:0.3s;
     }
 
-    nav a:hover{
+    nav a:hover,
+    nav a.active{
       color:#e53935;
     }
 
@@ -451,9 +452,10 @@
       </div>
 
       <nav>
-        <a href="{{ route('home') }}">Trang chủ</a>
-        <a href="{{ route('frontend.chuong-trinh.index') }}">Chương trình</a>
-        <a href="#">Liên hệ</a>
+        <a href="{{ route('home') }}" class="{{ Request::routeIs('home') ? 'active' : '' }}">Trang chủ</a>
+        <a href="{{ route('frontend.chuong-trinh.index') }}" class="{{ Request::routeIs('frontend.chuong-trinh.*') ? 'active' : '' }}">Chương trình</a>
+        <a href="{{ route('frontend.hoi-dap') }}" class="{{ Request::routeIs('frontend.hoi-dap') ? 'active' : '' }}">Hỏi - đáp</a>
+        <a href="{{ route('frontend.lien-he') }}" class="{{ Request::routeIs('frontend.lien-he') ? 'active' : '' }}">Liên hệ</a>
       </nav>
 
       @if(session()->has('admin_user'))
@@ -513,9 +515,9 @@
 
           <h3>Chức năng</h3>
 
-          <p>Chương trình</p>
-          <p>Tin tức</p>
-          <p>Liên hệ</p>
+          <p><a href="{{ route('frontend.chuong-trinh.index') }}">Chương trình</a></p>
+          <p><a href="{{ route('frontend.hoi-dap') }}">Hỏi - đáp</a></p>
+          <p><a href="{{ route('frontend.lien-he') }}">Liên hệ</a></p>
 
         </div>
 

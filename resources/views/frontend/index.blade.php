@@ -24,7 +24,7 @@
         </p>
 
         <div class="hero-buttons">
-          <a href="{{ route('dang-ky') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Đăng ký hiến máu</a>
+          <a href="{{ route('frontend.chuong-trinh.register') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Đăng ký hiến máu</a>
           <button class="btn btn-outline">Tìm hiểu thêm</button>
         </div>
 
